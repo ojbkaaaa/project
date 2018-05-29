@@ -1,58 +1,42 @@
 from snippets.models import Snippet
 from snippets.serializers import SnippetSerializer
-from django.http import Http404
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import mixins
+from rest_framework import generics
 
 
-class SnippetList(APIView):
-    # APIView实际继承django总的View
-    # from django.views.generic import View
-    """
-    # 这里是SnippetList接口描述
-    List all snippets, or create a new snippet.
-    """
-    def get(self, request, format=None):
-        snippets = Snippet.objects.all()
-        # manay=True 用于querySet对象
-        serializer = SnippetSerializer(snippets, many=True)
-        #3 Respone比django的response更强大
-        return Response(serializer.data)
+#我们用GenericAPIView建一个视图，并添加ListModelMixin和CreateModelMixin。
 
-    def post(self, request, format=None):
-        serializer = SnippetSerializer(data=request.data)
-        if serializer.is_valid():
-            # .save()是调用SnippetSerializer中的create()方法
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+# 到目前为止足够简单。基类提供核心功能，mixin类提供.list()和.create()操作。然后，我们明确的将get和post方法绑定到适当的操作上。
+
+class SnippetList(mixins.ListModelMixin,
+                  mixins.CreateModelMixin,
+                  generics.GenericAPIView):
+    # mixins.CreateModelMixin 可以保存数据                  
+    # generics.GenericAPIView 继承了APIView
+    queryset = Snippet.objects.all()
+    serializer_class = SnippetSerializer
+
+    def get(self, request, *args, **kwargs):
+        # self.list是ListModelMixin的list函数
+        # 功能是过滤、分页、调用serializer,将数据序列化
+        return self.list(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
 
 
-class SnippetDetail(APIView):
-    """
-    读取, 更新 or 删除一个代码片段(snippet)实例(instance).
-    """
-    def get_object(self, pk):
-        try:
-            return Snippet.objects.get(pk=pk)
-        except Snippet.DoesNotExist:
-            raise Http404
+class SnippetDetail(mixins.RetrieveModelMixin,
+                    mixins.UpdateModelMixin,
+                    mixins.DestroyModelMixin,
+                    generics.GenericAPIView):
+    queryset = Snippet.objects.all()
+    serializer_class = SnippetSerializer
 
-    def get(self, request, pk, format=None):
-        snippet = self.get_object(pk)
-        serializer = SnippetSerializer(snippet)
-        return Response(serializer.data)
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request, *args, **kwargs)
 
-    def put(self, request, pk, format=None):
-        snippet = self.get_object(pk)
-        serializer = SnippetSerializer(snippet, data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def put(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
 
-    def delete(self, request, pk, format=None):
-        snippet = self.get_object(pk)
-        snippet.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
