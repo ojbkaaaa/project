@@ -1,0 +1,89 @@
+import requests
+from bs4 import BeautifulSoup
+import time, json
+
+def getinfo():
+    url = 'https://passport.csdn.net/account/verify'
+    fkid = "WHJMrwNw1k/GX+43B9WS4tZNN2PbTQM/wdx13OU9iYJPqF/XbTT9l/7op6oozM5M5dzoTfKlnl0H/+XSCqjTXMpWkY0uA2PTzf1GuAF+o9UM35XO22BXTJxNm3aipA2jrHwZkHxLxTt7cJtxW64o6r47Kzw5k9jzDZIaDIifNYWO4VHlDBB/DkblFqH3P8NWWYjVQnMOcsCg7h05+iUatsCKiXLsA9ym+AnBSssD3CDWYjRHHk3eGpEf7fVlv4yKwBQOJzoBbbIiLFIxbY5CFig==1487582755342"
+    session = requests.session()
+    # print('==',session.cookies.get_dict())
+    html = session.get(url).text
+    # print('1=',session.cookies.get_dict())
+    # c = requests.cookies.RequestsCookieJar()
+    # c.set('cookies_name','cookies_value')
+    # session.cookies.update(c)
+    # print('2=',session.cookies.get_dict())
+    cookies = session.cookies.get_dict()
+    soup = BeautifulSoup(html, 'lxml')
+    num = soup.find_all('input', type='hidden')
+    # rememberMe = soup.find('input', name='rememberMe')['value']
+    gps = num[0]['value']
+    lt = num[1]['value']
+    execution = num[2]['value']
+    _eventId = num[4]['value']
+    return fkid, gps, lt, execution, _eventId, cookies
+    print(gps, '==', lt, '==', execution, '==', _eventId)
+
+def checkphone(phone):
+    url = 'https://passport.csdn.net/account/mobileservice?action=mobileIsBound&umobile=%s'% phone
+    html = requests.get(url).text
+    soup = BeautifulSoup(html, 'lxml')
+    status = soup.find('body').text.split(':')[1].split('}')[0]
+    if status == 'true':
+        status = True
+    else:
+        status = False
+    return status
+
+def login():
+    url = 'https://passport.csdn.net/account/verify'
+    fkid, gps, lt, execution, _eventId, cookies = getinfo()
+    user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36'
+    accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8'
+    username = input('输入你的用户：')
+    isuser = checkphone(username)
+    info = {}
+    status = 404
+    if isuser:
+        time.sleep(1)
+        password = input('输入你的密码：')
+        rememberMe = True
+        Agent = {
+            'User-Agent': user_agent,
+            'accept': accept,
+            'Host': 'passport.csdn.net',
+            'Origin': 'https://passport.csdn.net',
+            'Referer': 'https://passport.csdn.net/account/verify',
+            'Upgrade - Insecure - Requests': '1'
+        }
+        data = {
+            'fkid': fkid,
+            'gps': gps,
+            'lt': lt,
+            'execution': execution,
+            '_eventId': _eventId,
+            'username': username,
+            'password': password,
+            'rememberMe': rememberMe
+        }
+        request = requests.session()
+        html = request.post(url, headers=Agent, cookies=cookies, data=data)
+        status = html.status_code
+        cook = html.cookies.get_dict()
+        if status == 200:
+            with open('cookie.txt', 'w+') as f:
+                json.dump(cook, f)
+        # print(status)
+        # print(html)
+            info['cookies'] = cook
+
+        info['status'] = status
+    else:
+        print("不存在这个用户！！！")
+    return info
+
+# print(html.text)
+
+
+if __name__ == '__main__':
+    login()
